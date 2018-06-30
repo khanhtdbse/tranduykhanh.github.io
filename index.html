@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=0.5, maximum-scale=0.5, minimum-scale=0.5, user-scalable=no">
+    <meta name="x5-fullscreen" content="true">
+    <meta name="full-screen" content="yes">
+    <link rel="stylesheet" href="style.css">
+    <title>RPS game</title>
+</head>
+
+<body>
+    <p>
+        <h1 style="text-align: center">Welcome to Rock - Paper - Scissors game. Having fun!</h1>
+    </p>
+    <div id="app">
+        <div id="play-area">
+            <div class="column">
+                <h3>Your's hand</h3>
+                <hand 
+                    :fingers="playerFingers" 
+                    :is-player="true"
+                    :selected-finger='p_finger'/>
+            </div> 
+            <div class="column-center">
+                <h1>VS</h1>
+                <h2 v-if="waiting">Waiting....</h2>
+                <h2 class="result" v-if="result">{{ result }}</h2>
+            </div>
+            <div class="column"> 
+                <h3>Computer's hand</h3>
+                <hand 
+                    :fingers="computerFingers" 
+                    :selected-finger='c_finger' />        
+            </div>
+        </div>
+        <div id="result-area">
+            <h2>Games result</h2>
+            <h3 v-if="loadGames">Loading...</h3>
+            <div v-if="!loadGames">
+                <ul v-if="games.length > 0">
+                    <li v-for="game in games">{{ game }}</li>
+                </ul>
+                <span v-else>Empty</span>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+<script src=lib/nebPay.js></script>
+<script src=lib/nebulas.js></script>
+
+<script type="x-template" id="hand">
+    <div class="finger-box">
+        <div class="finger"
+            v-for="finger in fingers" 
+            :key="finger.value" 
+            :class="{active: selectedFinger && finger.value === selectedFinger.value, 'is-player-finger': isPlayer}"
+        >
+            <img :src="finger.img" @click="chooseFinger(finger)"/>
+        </div>
+    </div>
+</script>
+
+<script>
+    // Const register
+    const SMART_CONSTRACT_ADDR = 'n1mkjiwv6bB4EeKmhExWhnUXsB6HtpSe7ao' // Test net
+    const HOST_ADDR = 'n1ViirLQuno8zvx8KEf8B3RuXAfvKThY3yP' // Test net
+    const INTERVAL_TIME = 5000
+
+    // NebPay init
+    var NebPay = require("nebpay");    
+    var nebPay = new NebPay();
+    var serialNumber
+    var callbackUrl = NebPay.config.testnetUrl;   
+    var lastNas = 0.1
+
+    // Nebulas init
+    const nebulas = require("nebulas")
+    const Account = nebulas.Account
+    const neb = new nebulas.Neb();
+    neb.setRequest(new nebulas.HttpRequest("https://testnet.nebulas.io"));
+
+    var playerFingers = [
+        {
+            name: 'Rock',
+            img: 'imgs/dam1.jpg',
+            value: 1,
+        },
+        {
+            name: 'Paper',
+            img: 'imgs/boc1.jpg',
+            value: 2,
+        },
+        {
+            name: 'Scissors',
+            img: 'imgs/keo1.jpg',
+            value: 3,
+        }
+    ];
+
+    var computerFingers = [
+        {
+            name: 'Rock',
+            img: 'imgs/dam2.jpg',
+            value: 1,
+        },
+        {
+            name: 'Paper',
+            img: 'imgs/boc2.jpg',
+            value: 2,
+        },
+        {
+            name: 'Scissors',
+            img: 'imgs/keo2.jpg',
+            value: 3,
+        }
+    ];
+
+    var hand = Vue.component('hand', {
+        template: '#hand',
+        props: ['fingers', 'is-player', 'selected-finger'],
+        methods: {
+            chooseFinger(finger) {
+                window.app.result = null
+                window.app.c_finger = null
+                window.app.p_finger = null
+
+                this.isPlayer ? window.app.choosePFinger(finger) : window.app.chooseCFinger(finger)
+        
+                const nas = parseFloat(window.prompt('How many NAS coins you want to play?', lastNas))
+
+                if (!nas) {
+                    alert('You must enter NAS coins to play!')
+                    return
+                }
+
+                lastNas = nas
+
+                var to = SMART_CONSTRACT_ADDR;
+                var value = nas;
+                var callFunction = "play"
+                var callArgs = JSON.stringify([finger.value])
+
+                const serialNumber = nebPay.call(to, value, callFunction, callArgs, {    
+                    listener: this.cbPlay,     
+                    callback: callbackUrl
+                });
+
+                window.app.waiting = true
+
+                this.intervalQuery = setInterval(() => {
+                    this.funcIntervalQuery(serialNumber);
+                }, INTERVAL_TIME);
+
+            },
+            cbPlay(res) {
+                console.log({res})
+            },
+            funcIntervalQuery(serialNumber) {
+                var options = {
+                    callback: callbackUrl
+                }
+                nebPay.queryPayInfo(serialNumber,options) 
+                    .then((resp) => {
+                        var respObject = JSON.parse(resp)
+                        if(respObject.data.status === 1){
+                            window.app.waiting = false
+                            clearInterval(this.intervalQuery);
+                            this.processResult(JSON.parse(respObject.data.execute_result))
+                        }else if (respObject.data.status === 0) {
+                            window.app.waiting = false
+                            window.app.result = respObject.data.execute_error
+                            clearInterval(this.intervalQuery);
+                        }
+                    })
+                    .catch((err) => {
+                        console.log(err);
+                    });
+            },
+            processResult(obj) {
+                const cFinger = computerFingers.find(f => f.value === obj.computer_finger)
+                window.app.chooseCFinger(cFinger)
+                window.app.result = obj.result
+                window.app.getGames()
+            }
+        }
+    });
+
+    window.app = new Vue({
+        el: '#app',
+        data: {
+            playerFingers: playerFingers,
+            computerFingers: computerFingers,
+            p_finger: null, // Player selected finger
+            c_finger: null, // Computer selected finger
+            waiting: false,
+            result: null,
+            games: [],
+            loadGames: false,
+        },
+        components: {hand},
+        mounted() {
+            this.getGames()
+        },
+        methods: {
+            getGames() {
+                this.loadGames = true
+                const from = HOST_ADDR;
+
+                const gas_price = "1000000"
+                const gas_limit = "2000000"
+                const callFunction = "getGames";
+
+                const callArgs = JSON.stringify([]);  
+                const contract = {
+                    "function": callFunction,
+                    "args": callArgs
+                }
+
+                neb.api.call(from,SMART_CONSTRACT_ADDR,"0","0",gas_price,gas_limit,contract)
+                    .then((res) => {
+                        this.cbGetGames(res)
+                        this.loadGames = false
+                    })
+                    .catch((err) => {
+                        console.log({err})
+                        this.loadGames = false
+                    })
+            },
+            cbGetGames(res) {
+                var result = JSON.parse(res.result)
+                result = result.filter(a => a !== null).reverse()
+
+                this.games = result
+            },
+            choosePFinger(finger){
+                this.p_finger = finger
+            },
+            chooseCFinger(finger) {
+                this.c_finger = finger
+            }
+        }
+    });
+
+</script>
+</body>
+
+</html>

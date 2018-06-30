@@ -1,0 +1,51 @@
+#app{
+    max-width: 1024px;
+    margin: auto;
+    
+}
+
+#play-area {
+    border: 1px solid green;
+    display: flex;
+    justify-content: stretch;
+}
+
+#app .column{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-grow: 1;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#app .column-center{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#app .column .finger-box{
+    margin-bottom: 15px;
+}
+
+#app .column .finger-box .finger.active{
+    outline: 2px solid red;
+}
+
+.finger{
+    padding: 10px;
+}
+
+.finger.is-player-finger:hover{
+    cursor: pointer;
+    outline: 2px solid green;
+}
+
+.result{
+    color: red;
+    font-weight: bold;
+}
+
+
