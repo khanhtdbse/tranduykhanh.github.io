@@ -1,4 +1,4 @@
-const HOST_ADDRESS = "n1MPMQgPJVRU8DRLg9eQpXVTbzYPipiuaTb" // Test net
+const HOST_ADDRESS = "n1MPMQgPJVRU8DRLg9eQpXVTbzYPipiuaTb" 
 
 const Errors = {
     INVALID_FINGER: 'Invalid finger!',
