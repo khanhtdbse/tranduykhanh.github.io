@@ -124,6 +124,9 @@
         props: ['fingers', 'is-player', 'selected-finger'],
         methods: {
             chooseFinger(finger) {
+                if (!this.isPlayer) {
+                    return
+                }
                 window.app.result = null
                 window.app.c_finger = null
                 window.app.p_finger = null
